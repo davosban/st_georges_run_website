@@ -10,12 +10,10 @@
 # 2. Disable directory browsing ("Index of ...") completely
 Options -Indexes
 
-# 3. Clean routing for waiver and fallback handling
+# 3. Prevent parent WordPress rewrite rules from intercepting this directory
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteBase ./
-
-    # Route /waiver directly to waiver.html
+    RewriteRule ^$ index.html [L]
     RewriteRule ^waiver/?$ waiver.html [L,QSA]
 </IfModule>
 
