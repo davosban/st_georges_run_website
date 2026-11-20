@@ -63,12 +63,14 @@ document.addEventListener('DOMContentLoaded', () => {
       marketing: form.elements.namedItem('marketing')?.checked || false
     };
 
-    // Determine target endpoint (supports register.php on shared hosting or /api/register on Node)
-    const endpoint = window.location.protocol === 'file:' ? null : (window.location.pathname.endsWith('.html') || window.location.pathname.endsWith('/') ? 'register.php' : '/api/register');
+    const targetUrl = 'https://stgeorgesheight.com/product/sunrise-run-walk-ticket/';
 
-    if (!endpoint) {
-      // Direct local file viewing
-      window.location.href = 'https://stgeorgesheight.com/product/sunrise-run-walk-ticket/';
+    // Local Node dev server uses /api/register; shared hosting uses register.php
+    const isLocalNode = window.location.port === '3000' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const endpoint = isLocalNode ? '/api/register' : 'register.php';
+
+    if (window.location.protocol === 'file:') {
+      window.location.href = targetUrl;
       return;
     }
 
@@ -78,15 +80,16 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
-      const result = await response.json();
-      if (!response.ok || !result.ok) {
-        throw new Error(result.error || 'Failed to submit registration. Please try again.');
+      const result = await response.json().catch(() => ({ ok: true, redirect: targetUrl }));
+      if (response.ok && result.ok) {
+        window.location.href = result.redirect || targetUrl;
+      } else {
+        throw new Error(result.error || 'Registration submission failed. Redirecting to ticket purchase…');
       }
-      window.location.href = result.redirect || 'https://stgeorgesheight.com/product/sunrise-run-walk-ticket/';
     } catch (err) {
-      // If server endpoint isn't present or network fails, fall back to direct redirect
-      console.warn('Endpoint error, redirecting directly:', err);
-      window.location.href = 'https://stgeorgesheight.com/product/sunrise-run-walk-ticket/';
+      console.warn('Dispatch note:', err);
+      // Fallback: Ensure participant is never blocked from buying ticket
+      window.location.href = targetUrl;
     }
   });
 });

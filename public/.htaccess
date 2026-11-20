@@ -1,0 +1,27 @@
+# ----------------------------------------------------------------------
+# St. George's Sunrise Run & Walk - Apache / LiteSpeed Configuration
+# ----------------------------------------------------------------------
+
+# 1. Prioritize index.html and index.php as default landing page
+<IfModule mod_dir.c>
+    DirectoryIndex index.html index.php index.htm
+</IfModule>
+
+# 2. Disable directory browsing ("Index of ...") completely
+Options -Indexes
+
+# 3. Clean routing for waiver and fallback handling
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase ./
+
+    # Route /waiver directly to waiver.html
+    RewriteRule ^waiver/?$ waiver.html [L,QSA]
+</IfModule>
+
+# 4. Standard security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
