@@ -109,7 +109,7 @@ if (empty($data) && !empty($_POST)) {
 $fullName       = trim($data['fullName'] ?? '');
 $email          = trim($data['email'] ?? '');
 $phone          = trim($data['phone'] ?? '');
-$distance       = trim($data['distance'] ?? '5 km');
+$distance       = '5 km walk/run';
 $ageGroup       = trim($data['ageGroup'] ?? 'adult');
 $emergencyName  = trim($data['emergencyName'] ?? '');
 $emergencyPhone = trim($data['emergencyPhone'] ?? '');
@@ -170,7 +170,7 @@ $pSubject = "Registration Confirmation - St. George's Sunrise Run & Walk ({$code
 $pBody = "Hello {$fullName},\n\n";
 $pBody .= "Thank you for registering for the St. George's Sunrise Run & Walk (The Doboro Edition)!\n\n";
 $pBody .= "Your Registration Code is: {$code}\n";
-$pBody .= "Selected Route: {$distance}\n\n";
+$pBody .= "Course: {$distance}\n\n";
 $pBody .= "To complete your ticket purchase, please proceed here:\n";
 $pBody .= "https://stgeorgesheight.com/product/sunrise-run-walk-ticket/\n\n";
 $pBody .= "If you have any questions, feel free to reply directly to this email or reach our organising team at bookings@stgeorgesheight.com.\n\n";

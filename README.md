@@ -1,17 +1,12 @@
 # St. George’s Sunrise Run & Walk — registration website
 
-A mobile-friendly event site with real registration storage and **two possible MoMo workflows**:
-
-1. **Direct MoMo transfer** (simplest first-launch option): The participant registers, sees the official number and account name, transfers the exact amount using their own MoMo service, and enters their transaction reference. The system marks the payment **Awaiting verification** until your organiser checks it against the official statement and manually confirms it in `/admin`. **The website cannot automatically detect transfers to a personal MoMo number.**
-2. **Paystack Mobile Money checkout** (optional): The server creates a Paystack-hosted Mobile Money checkout. Paystack collects payment and settles into the approved merchant account. The server verifies the payment amount, currency and reference through the webhook or API before confirming registration. This is *not* a direct transfer to the public MoMo number in option 1.
-
-The ZIP includes backend, styled frontend, admin dashboard and source files. **It is not deployed yet.** No live collection is enabled without a correctly configured wallet/merchant account.
+Participants register for the 5 km walk/run and continue to the St. George’s Heights ticket page to pay. The Node.js site stores registrations in SQLite and leaves them pending until the organiser verifies payment. Shared hosting uses the included PHP registration handler.
 
 ## Included features
 
 - First-edition event landing page; mobile-friendly and designed for St. George’s Doboro edition.
-- **One ticket type: General admission GH₵80 per participant**, whether the participant selects the 3 km walk or 5 km run. No early bird, premium, or group tier.
-- **Confirmed date: Friday, 4 December 2026**. Route choice of 3 km walk or 5 km run, participant details, emergency contact and guardian approval for under-18s.
+- **One ticket type: General admission GH₵80 per participant**, for the 5 km walk/run. No early bird, premium, or group tier.
+- **Confirmed date: Friday, 4 December 2026**. One 5 km course for walkers and runners, participant details, emergency contact and guardian approval for under-18s.
 - New **`/waiver` medical waiver & health declaration** with advice on health readiness, route risks, safety rules, medical support and privacy. Registration requires a distinct health declaration and first-aid acknowledgement. The database stores the version/time accepted, but no health diagnoses. Photographic permission is separately optional.
 - Backend-generated registration codes and secure, unguessable receipt URLs.
 - Pending/paid/rejected payment statuses and manual verification dashboard at `/admin`.
@@ -28,9 +23,9 @@ The ZIP includes backend, styled frontend, admin dashboard and source files. **I
 ## Set up locally
 
 1. Copy `.env.example` to `.env`.
-2. The confirmed date and GH₵80 fee are prefilled. Enter the verified official MoMo number and *registered account name*. Enter a strong `ADMIN_PASSWORD` and an independent random `SESSION_SECRET` of at least 32 bytes. Confirm the remaining event details before opening.
+2. The confirmed date and GH₵80 fee are prefilled. To enable registrations in Node.js, enter a strong `ADMIN_PASSWORD` and an independent random `SESSION_SECRET` of at least 32 bytes. Confirm the remaining event details before opening.
 3. `npm start` (no npm packages are needed). Open `http://localhost:3000`.
-4. The application is **preview only** unless a wallet or gateway is configured. For local end-to-end testing *without real payments*, you may set `TEST_MODE=true` in `.env`, use fictional participant details, then reset to `false` before public launch. Do not publish a TEST_MODE site.
+4. The application is **preview only** unless the organiser credentials are configured. For local end-to-end testing *without real payments*, you may set `TEST_MODE=true` in `.env`, use fictional participant details, then reset to `false` before public launch. Do not publish a TEST_MODE site.
 5. Open `http://localhost:3000/admin` to verify submitted transaction IDs against the MoMo account's actual transaction history.
 
 `MOMO_NUMBER` and `MOMO_NAME` are required together for direct transfer. Do not place payment credentials into the HTML or frontend JavaScript.
@@ -62,7 +57,7 @@ All admin communications should happen over HTTPS. The included simple admin pas
 
 Go to `/admin` and enter your `ADMIN_PASSWORD`. Search/filter can be done by exporting the CSV; the app lists up to the latest 5,000 registrations in the dashboard.
 
-## How auto-payments are verified
+## How existing Paystack payments are verified
 
 - Paystack initialisation uses the **server-secret** key and the agreed ticket price in pesewas.
 - Webhook authenticity is verified via HMAC SHA-512.
@@ -71,4 +66,4 @@ Go to `/admin` and enter your `ADMIN_PASSWORD`. Search/filter can be done by exp
 
 ## Confirmed pricing and branding status
 
-The organiser confirmed one GH₵80 general admission ticket for Friday, 4 December 2026. The default server-side registration endpoint rejects legacy early, premium, standard and group tiers. Payment account information is **not yet confirmed**, so no live registration is possible with the sample environment. The current green/cream/champagne colours and SG monogram are a **temporary presentation concept**, not a verified official Instagram logo or brand palette. Replace `public/favicon.svg`, the temporary `SG` mark in `nav()` in `server.js`, and CSS variables once an approved logo/profile image or branding guide is supplied. Do not claim the temporary monogram is the resort’s official logo.
+The organiser confirmed one GH₵80 general admission ticket for Friday, 4 December 2026. The default server-side registration endpoint rejects legacy early, premium, standard and group tiers. The sample environment keeps Node.js registrations closed until organiser credentials are set. The current green/cream/champagne colours and SG monogram are a **temporary presentation concept**, not a verified official Instagram logo or brand palette. Replace `public/favicon.svg`, the temporary `SG` mark in `nav()` in `server.js`, and CSS variables once an approved logo/profile image or branding guide is supplied. Do not claim the temporary monogram is the resort’s official logo.

@@ -44,7 +44,8 @@ const WAIVER_VERSION = process.env.WAIVER_VERSION || 'DRAFT-2026-11-15-v1';
 const manualEnabled = /^\+?[\d\s-]{9,18}$/.test(cfg.momoNumber) && cfg.momoName.length > 1;
 const paystackEnabled = cfg.paystack.startsWith('sk_') && /^https:\/\/[^/]+\.[^/]+/.test(cfg.baseUrl) && !cfg.baseUrl.includes('your-real-domain.com');
 const adminConfigured = cfg.adminPassword.length >= 12 && !cfg.adminPassword.startsWith('REPLACE_') && cfg.sessionSecret.length >= 40 && !cfg.sessionSecret.startsWith('REPLACE_');
-const registrationEnabled = ((manualEnabled || paystackEnabled) && adminConfigured) || cfg.testMode;
+const registrationEnabled = adminConfigured || cfg.testMode;
+const paymentUrl = 'https://stgeorgesheight.com/product/sunrise-run-walk-ticket/';
 const dbDir=process.env.DATA_DIR || path.join(__dirname,'data');
 fs.mkdirSync(dbDir,{recursive:true});
 const db=new DatabaseSync(path.join(dbDir,'registrations.sqlite'));
@@ -97,24 +98,28 @@ function adminAuthed(req){if(!adminConfigured)return false;let value=getCookie(r
 function checkOrigin(req){const origin=req.headers.origin;if(!origin)return true;try{return new URL(origin).host===(req.headers['x-forwarded-host']||req.headers.host);}catch{return false;}}
 async function readBody(req,limit=16000){const chunks=[];let size=0;for await(const part of req){size+=part.length;if(size>limit)throw new Error('Request is too large'); chunks.push(part);}return Buffer.concat(chunks);}
 function sendStatic(req,res,filename){const ext=path.extname(filename);const type={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'application/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.ico':'image/x-icon'}[ext]||'application/octet-stream'; const file=path.join(__dirname,'public',filename);if(!fs.existsSync(file)){res.writeHead(404);return res.end('Not found');}res.writeHead(200,{'content-type':type,'cache-control':ext==='.html'?'no-store':'public, max-age=3600'});fs.createReadStream(file).pipe(res);}
+function previewBanner(){return cfg.testMode?'<div class="preview-banner">TEST MODE — DO NOT SHARE THIS SITE OR SEND REAL PAYMENTS. Use fictional registration details only.</div>':registrationEnabled?'':'<div class="preview-banner">Preview mode: registration is currently closed.</div>';}
 function page(title,body,scripts=''){
- const ready=cfg.testMode?'<div class="preview-banner">TEST MODE — DO NOT SHARE THIS SITE OR SEND REAL PAYMENTS. Use fictional registration details only.</div>':registrationEnabled?'':'<div class="preview-banner">Preview mode: registrations are not yet open. Configure the official payment account and secure organiser credentials before launch.</div>';
- return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#20362b"><title>${escapeHtml(title)} · St. George’s</title><meta name="description" content="Register for St. George’s Sunrise Run & Walk — The Doboro Edition."><link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="stylesheet" href="/style.css"></head><body>${ready}${body}<script src="/app.js" defer></script>${scripts}</body></html>`;
+ return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#20362b"><title>${escapeHtml(title)} · St. George’s</title><meta name="description" content="Register for St. George’s Sunrise Run & Walk — The Doboro Edition."><link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="stylesheet" href="/style.css"></head><body>${previewBanner()}${body}<script src="/app.js" defer></script>${scripts}</body></html>`;
 }
 function nav(){return `<header class="nav"><a class="brand" href="/" aria-label="St George's home"><span class="brand-mark">SG<span class="brand-star">✳</span></span><span class="brand-name">ST. GEORGE’S<small>HEIGHTS · DOBORO</small></span></a><nav class="nav-links"><a href="/#experience">The experience</a><a href="/#tickets">Tickets</a><a href="/#faqs">FAQs</a></nav><a class="nav-cta" href="/#register">Register <span aria-hidden="true">↗</span></a></header>`;}
-function footer(){return `<footer class="footer"><div class="footer-brand">ST. GEORGE’S <span>RUN & WALK</span></div><div>East Doboro, Ghana · A different route. A better morning.</div><div class="footer-note">${cfg.email?`Enquiries: <a href="mailto:${escapeHtml(cfg.email)}">${escapeHtml(cfg.email)}</a>`:'Event details and contact information will be announced by the organisers.'}</div><p>Participation is voluntary and subject to event safety instructions. Never disclose your MoMo PIN to organisers.</p></footer>`;}
-function waiverPage(){const raw=fs.readFileSync(path.join(__dirname,'public','waiver.html'),'utf8');return page('Medical Waiver & Health Declaration',nav()+raw.replaceAll('{{WAIVER_VERSION}}',escapeHtml(WAIVER_VERSION))+footer());}
-function home(){const raw=fs.readFileSync(path.join(__dirname,'public','index.html'),'utf8'); const t={
- '{{NAV}}':nav(), '{{FOOTER}}':footer(), '{{DATE}}':escapeHtml(cfg.date), '{{LOCATION}}':escapeHtml(cfg.place), '{{NAME}}':escapeHtml(cfg.name),
- '{{GENERAL}}':String(cfg.prices.general), '{{CTA}}':registrationEnabled?'Reserve your spot':'View registration form',
- '{{BUTTON_DISABLED}}':registrationEnabled?'':'disabled', '{{BUTTON_TEXT}}':registrationEnabled?'Continue to payment':'Payment setup pending'
- };let out=raw;for(const[k,v]of Object.entries(t))out=out.replaceAll(k,v);return page('Sunrise Run & Walk',out);}
+function footer(){return `<footer class="footer"><div class="footer-brand">ST. GEORGE’S <span>RUN & WALK</span></div><div>East Doboro, Ghana · A different route. A better morning.</div><div class="footer-note">${cfg.email?`Enquiries: <a href="mailto:${escapeHtml(cfg.email)}">${escapeHtml(cfg.email)}</a>`:'Event details and contact information will be announced by the organisers.'}</div><p>Participation is voluntary and subject to event safety instructions.</p></footer>`;}
+function waiverPage(){
+ return fs.readFileSync(path.join(__dirname,'public','waiver.html'),'utf8')
+  .replaceAll('{{WAIVER_VERSION}}',escapeHtml(WAIVER_VERSION));
+}
+function home(){
+ return fs.readFileSync(path.join(__dirname,'public','index.html'),'utf8')
+  .replace('<body>', `<body>${previewBanner()}`)
+  .replace('action="register.php"', 'action="/api/register"')
+  .replace('id="submitBtn"', registrationEnabled ? 'id="submitBtn"' : 'id="submitBtn" disabled');
+}
 function payablePage(r){const method=r.method; const status=r.status;
 const paid=status==='paid';const awaiting=status==='awaiting_payment'; const manual=method==='manual';
-const desc=paid?'Payment confirmed. Your place is secured.':status==='pending_verification'?'We have your transaction reference. The team will verify it against our MoMo statement.':status==='rejected'?'This registration has not been confirmed. Please contact the organising team.':manual?'Transfer the exact amount to the official account below, then provide your transaction reference.':'Complete the secure checkout. Registration is confirmed only after the payment provider verifies payment.';
+const desc=paid?'Payment confirmed. Your place is secured.':status==='pending_verification'?'We have your transaction reference. The team will verify it against our MoMo statement.':status==='rejected'?'This registration has not been confirmed. Please contact the organising team.':method==='external'?'Continue to the payment page to complete your registration.':manual?'Transfer the exact amount to the official account below, then provide your transaction reference.':'Complete the secure checkout. Registration is confirmed only after the payment provider verifies payment.';
 const input=manual&&awaiting?`<form id="referenceForm" class="reference-form"><label for="transactionRef">MoMo transaction ID / reference</label><div class="reference-inline"><input id="transactionRef" name="transactionRef" maxlength="80" required placeholder="e.g. 1234567890" autocomplete="off"><button class="btn primary" type="submit">Submit reference</button></div><p class="fine-print">Submitting a reference does not confirm payment. Our team must verify receipt.</p><p class="form-msg" role="alert" id="refMessage"></p></form>`:'';
 const details=manual&&status!=='paid'?`<div class="pay-details"><div><span>Network</span><strong>${escapeHtml(cfg.momoNetwork)}</strong></div><div><span>Official MoMo number</span><strong>${escapeHtml(cfg.momoNumber)}</strong><button class="copy-btn" type="button" data-copy="${escapeHtml(cfg.momoNumber)}">Copy</button></div><div><span>Account name (verify this)</span><strong>${escapeHtml(cfg.momoName)}</strong></div><div><span>Amount to transfer</span><strong>${money(r.amount_pesewas)}</strong></div><div><span>Payment note / reference</span><strong>${escapeHtml(r.code)}</strong><button class="copy-btn" type="button" data-copy="${escapeHtml(r.code)}">Copy</button></div></div><p class="security-note">Only make payment after the displayed MoMo account name matches. Do not enter your MoMo PIN anywhere on this website.</p>`:'';
-const retry=!paid&&!manual&&status!=='rejected'?`<button class="btn primary" data-paystack-retry="${escapeHtml(r.token)}">Continue secure MoMo payment <span aria-hidden="true">↗</span></button>`:'';
+const retry=awaiting&&method==='external'?`<a class="btn primary" href="${paymentUrl}">Continue to payment</a>`:!paid&&method==='paystack'&&status!=='rejected'?`<button class="btn primary" data-paystack-retry="${escapeHtml(r.token)}">Continue secure MoMo payment <span aria-hidden="true">↗</span></button>`:'';
 return page('Your registration',`${nav()}<main class="receipt-wrapper"><div class="receipt-card"><div class="receipt-top"><div class="eyebrow">ST. GEORGE’S · THE DOBORO EDITION</div><div class="receipt-tag ${paid?'paid':status==='rejected'?'rejected':'pending'}">${paid?'✓ CONFIRMED':status==='pending_verification'?'● AWAITING VERIFICATION':status==='rejected'?'UNCONFIRMED':'● PAYMENT PENDING'}</div></div><h1>${paid?'You’re on the list.':'One step closer to the start line.'}</h1><p class="receipt-intro">${escapeHtml(desc)}</p><div class="receipt-summary"><div><small>Registration ID</small><strong>${escapeHtml(r.code)}</strong></div><div><small>Lead participant</small><strong>${escapeHtml(r.full_name)}</strong></div><div><small>Ticket</small><strong>${escapeHtml(r.ticket==='general'?'General admission':r.ticket)} · ${escapeHtml(r.distance)}</strong></div><div><small>Total</small><strong>${money(r.amount_pesewas)}</strong></div></div>${details}${input}${retry}<p class="fine-print">Save this page and your registration ID. ${paid?'We look forward to welcoming you to Doboro.':'Refresh this page later to check your payment status.'}</p><a class="back-link" href="/">← Back to event page</a></div></main>${footer()}`);
 }
 function adminLoginPage(){return page('Organiser login',`${nav()}<main class="receipt-wrapper"><form class="receipt-card admin-login" id="adminLogin"><div class="eyebrow">ORGANISER ACCESS</div><h1>Registration dashboard</h1><p class="receipt-intro">Authorised event staff only.</p><label for="adminPassword">Admin password</label><input type="password" name="password" id="adminPassword" required minlength="8" autocomplete="current-password"><button type="submit" class="btn primary full-width">Sign in</button><p class="form-msg" id="loginMsg" role="alert"></p></form></main>${footer()}`);}
@@ -189,7 +194,7 @@ function notifyRegistration(r) {
     `- Location: ${cfg.place}`,
     ``,
     `To complete your ticket purchase, please proceed here:`,
-    `https://stgeorgesheight.com/product/sunrise-run-walk-ticket/`,
+    paymentUrl,
     ``,
     `If you have any questions, you can reply directly to this email or contact us at ${cfg.notifyTo}.`,
     ``,
@@ -218,8 +223,8 @@ function notifyRegistration(r) {
 async function handle(req,res){
  const pathname=new URL(req.url,'http://localhost').pathname;
  const method=req.method||'GET';
- if(method==='GET' && pathname==='/')return html(res,home());
- if(method==='GET' && pathname==='/waiver')return html(res,waiverPage());
+ if(method==='GET' && ['/', '/index.html'].includes(pathname))return html(res,home());
+ if(method==='GET' && ['/waiver', '/waiver.html'].includes(pathname))return html(res,waiverPage());
  if(method==='GET' && ['/style.css','/app.js','/favicon.svg'].includes(pathname))return sendStatic(req,res,pathname.slice(1));
  if(method==='GET' && pathname==='/api/config')return json(res,200,{ok:true,name:cfg.name,date:cfg.date,location:cfg.place,prices:cfg.prices,paymentMethods:{manual:manualEnabled,paystack:paystackEnabled},registrationEnabled,testMode:cfg.testMode,waiverVersion:WAIVER_VERSION});
  if(method==='GET' && /^\/pay\/[a-zA-Z0-9_-]{24}$/.test(pathname)){let r=sql.getByToken.get(pathname.split('/')[2]);if(!r)return html(res,page('Not found',`${nav()}<main class="receipt-wrapper"><div class="receipt-card"><h1>Registration not found.</h1><a href="/">Return to the event</a></div></main>${footer()}`),404);r=await paystackVerify(r);return html(res,payablePage(r));}
@@ -230,15 +235,15 @@ async function handle(req,res){
  if(!['POST','PUT','PATCH','DELETE'].includes(method)){res.writeHead(404);return res.end('Not found');}
  if(!checkOrigin(req))return error(res,403,'Untrusted request origin');
  if(pathname==='/api/paystack/webhook' && method==='POST'){const raw=await readBody(req,100000);if(!cfg.paystack)return error(res,404,'Gateway not set up');const supplied=req.headers['x-paystack-signature']||'';const expected=crypto.createHmac('sha512',cfg.paystack).update(raw).digest('hex');if(typeof supplied!=='string'||!/^[0-9a-f]{128}$/i.test(supplied)||!crypto.timingSafeEqual(Buffer.from(supplied.toLowerCase()),Buffer.from(expected)))return error(res,401,'Invalid signature');const event=JSON.parse(raw.toString());if(event.event==='charge.success'){const d=event.data||{};const r=sql.getByGateway.get(d.reference||'');if(r && r.status!=='paid' && r.method==='paystack' && Number(d.amount)===r.amount_pesewas && d.currency==='GHS' && d.status==='success')sql.updateStatus.run('paid',now(),now(),r.id);}return json(res,200,{ok:true});}
- const b=JSON.parse((await readBody(req)).toString()||'{}');
+ const rawBody=(await readBody(req)).toString();
+ const registrationForm=pathname==='/api/register' && method==='POST' &&
+  req.headers['content-type']?.split(';')[0]==='application/x-www-form-urlencoded';
+ const b=registrationForm ? Object.fromEntries(new URLSearchParams(rawBody)) : JSON.parse(rawBody||'{}');
  if(pathname==='/api/register' && method==='POST'){
   if(!registrationEnabled)return error(res,503,'Registrations are not yet open');
   const ip=String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'').split(',')[0];const t=Date.now();const arr=(rate.get(ip)||[]).filter(x=>t-x<600000);if(arr.length>=7)return error(res,429,'Too many attempts. Please try again later.');arr.push(t);rate.set(ip,arr);if(rate.size>10000)rate.clear();
-  const name=clean(b.fullName,100),email=clean(b.email,160).toLowerCase(),phone=clean(b.phone,25),distance=clean(b.distance,8),ticket=clean(b.ticket,12),method=clean(b.method,12);
-  if(name.length<3||!name.includes(' ')||!/^\S+@\S+\.\S+$/.test(email)||!/^\+?\d[\d\s-]{8,15}$/.test(phone))return error(res,400,'Enter your full name, valid email address and MoMo/contact number');
-  if(!['3 km','5 km'].includes(distance)||ticket!=='general'||!['manual','paystack'].includes(method))return error(res,400,'Select a valid ticket, route and payment method');
-  if(method==='manual'&&!manualEnabled&&!cfg.testMode)return error(res,400,'Direct MoMo transfer is not available');
-  if(method==='paystack'&&!paystackEnabled)return error(res,400,'Secure checkout is not available');
+  const name=clean(b.fullName,100),email=clean(b.email,160).toLowerCase(),phone=clean(b.phone,25),distance='5 km',ticket='general',paymentMethod='external';
+  if(name.length<3||!name.includes(' ')||!/^\S+@\S+\.\S+$/.test(email)||!/^\+?\d[\d\s-]{8,15}$/.test(phone))return error(res,400,'Enter your full name, valid email address and contact number');
   if(!b.agree||!b.waiverAccepted||!b.medicalConsent)return error(res,400,'Please read and accept the health declaration, first-aid consent and event terms');
   const ageGroup=clean(b.ageGroup,10),emergencyName=clean(b.emergencyName,100),emergencyPhone=clean(b.emergencyPhone,25);
   const guardianName=clean(b.guardianName,100),guardianPhone=clean(b.guardianPhone,25);
@@ -248,10 +253,12 @@ async function handle(req,res){
   const members=[];
   const amount=cfg.prices[ticket]*100;if(!Number.isSafeInteger(amount)||amount<100)return error(res,500,'Ticket prices are not configured correctly');
   const token=random(),code='SG-'+crypto.randomBytes(4).toString('hex').toUpperCase();
-  try{db.exec('BEGIN IMMEDIATE');sql.insert.run(token,code,name,email,phone,distance,ticket,JSON.stringify(members),1,amount,method,'awaiting_payment','',ageGroup==='under18'?1:0,b.marketing?1:0,now(),now(),WAIVER_VERSION,now(),1,b.photoConsent?1:0,emergencyName,emergencyPhone,ageGroup,ageGroup==='under18'?guardianName:'',ageGroup==='under18'?guardianPhone:'');db.exec('COMMIT');}catch(e){try{db.exec('ROLLBACK')}catch{};console.error(e);return error(res,500,'Unable to create registration');}
-  const r=sql.getByToken.get(token);
-  if(method==='paystack'){try{const url=await beginPaystack(r);return json(res,201,{ok:true,code,redirect:url});}catch(e){console.error(e);return json(res,201,{ok:true,code,redirect:'/pay/'+token,message:'Registration created; secure payment is temporarily unavailable. You can retry from your registration page.'});}}
-  return json(res,201,{ok:true,code,redirect:'https://stgeorgesheight.com/product/sunrise-run-walk-ticket/'});
+  try{db.exec('BEGIN IMMEDIATE');sql.insert.run(token,code,name,email,phone,distance,ticket,JSON.stringify(members),1,amount,paymentMethod,'awaiting_payment','',ageGroup==='under18'?1:0,b.marketing?1:0,now(),now(),WAIVER_VERSION,now(),1,b.photoConsent?1:0,emergencyName,emergencyPhone,ageGroup,ageGroup==='under18'?guardianName:'',ageGroup==='under18'?guardianPhone:'');db.exec('COMMIT');}catch(e){try{db.exec('ROLLBACK')}catch{};console.error(e);return error(res,500,'Unable to create registration');}
+  if(registrationForm){
+   res.writeHead(303,{location:paymentUrl});
+   return res.end();
+  }
+  return json(res,201,{ok:true,code,redirect:paymentUrl});
  }
  if(pathname==='/api/transfer-reference' && method==='POST'){
   const r=sql.getByToken.get(clean(b.token,32));if(!r||r.method!=='manual')return error(res,404,'Registration not found');if(r.status==='paid'||r.status==='rejected')return error(res,409,'This registration is no longer awaiting payment');const tx=clean(b.transactionRef,80);if(!/^[A-Za-z0-9 /_\-.]{6,80}$/.test(tx))return error(res,400,'Enter a valid MoMo transaction reference');const existing=db.prepare("SELECT code FROM registrations WHERE transfer_reference=? AND token<>? AND status!='rejected' LIMIT 1").get(tx,r.token);if(existing)return error(res,409,'This transaction reference was submitted already. Contact the organisers if you believe this is a mistake');sql.updateTransfer.run(tx,'pending_verification',now(),r.token);return json(res,200,{ok:true,status:'pending_verification'});
